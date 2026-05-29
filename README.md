@@ -11,7 +11,7 @@ A Retrieval-Augmented Generation (RAG) chatbot for SWS AI employees to query com
 - **Python 3.10+** (tested on 3.12)
 - **Ollama** with models:
   - `nomic-embed-text` (embeddings, 274 MB)
-  - `qwen2.5-coder:3b` (LLM generation, 1.9 GB — ~3x faster than llama3.1:8b)
+  - `llama3.2:8b` (LLM generation, 2.0GB)
 - **Pip packages** (see below)
 
 ### Installation
@@ -98,7 +98,7 @@ SWS/
 
 ### Performance
 - **Parallelized embeddings** — `ThreadPoolExecutor(8)` batches embedding calls concurrently
-- **qwen2.5-coder:3b** — Lightweight LLM (~3x faster than llama3.1:8b) with sufficient RAG quality
+- **llama3.2:8b** - LLM with sufficient RAG quality
 - **Streaming** — Token-by-token LLM response reduces perceived latency
 
 ---
