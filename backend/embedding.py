@@ -10,14 +10,17 @@ class OllamaEmbeddingFunction(Embeddings):
         self.base_url = base_url.rstrip("/")
 
     def _embed(self, texts: list[str]) -> list[list[float]]:
-        response = httpx.post(
-            f"{self.base_url}/api/embed",
-            json={"model": self.model, "input": texts},
-            timeout=60,
-        )
-        response.raise_for_status()
-        data = response.json()
-        return data.get("embeddings", [])
+        results = []
+        for text in texts:
+            response = httpx.post(
+                f"{self.base_url}/api/embeddings",
+                json={"model": self.model, "prompt": text},
+                timeout=120,
+            )
+            response.raise_for_status()
+            data = response.json()
+            results.append(data["embedding"])
+        return results
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
         return self._embed(texts)

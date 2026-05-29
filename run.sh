@@ -11,6 +11,6 @@ else
     echo "Vector database already exists."
 fi
 
-echo "Starting FastAPI server on http://0.0.0.0:8000"
-echo "Open the chat UI at http://localhost:8000"
-uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+echo "Starting FastAPI server on http://0.0.0.0:1234"
+echo "Open the chat UI at http://localhost:1234"
+uvicorn backend.main:app --host 0.0.0.0 --port 1234 --reload

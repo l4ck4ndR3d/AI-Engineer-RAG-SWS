@@ -18,14 +18,14 @@ chmod +x run.sh
 ./run.sh
 ```
 
-This activates the pyenv, ingests PDFs (first run only), and starts the server at `http://localhost:8000`.
+This activates the pyenv, ingests PDFs (first run only), and starts the server at `http://localhost:1234`.
 
 Or manually:
 
 ```bash
 source ~/Desktop/pyenv/bin/activate
 python backend/ingest.py          # ingest PDFs into ChromaDB
-uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+uvicorn backend.main:app --host 0.0.0.0 --port 1234 --reload
 ```
 
 ## Design Decisions
