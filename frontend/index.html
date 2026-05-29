@@ -569,23 +569,6 @@
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
-    function showTyping() {
-      const div = document.createElement('div');
-      div.className = 'message bot'; div.id = 'typing';
-      const avatar = document.createElement('div'); avatar.className = 'avatar'; avatar.textContent = 'S';
-      const bubble = document.createElement('div'); bubble.className = 'bubble';
-      const ind = document.createElement('div'); ind.className = 'typing-indicator';
-      for (let i = 0; i < 3; i++) ind.appendChild(document.createElement('span'));
-      bubble.appendChild(ind); div.appendChild(avatar); div.appendChild(bubble);
-      messagesEl.appendChild(div);
-      messagesEl.scrollTop = messagesEl.scrollHeight;
-    }
-
-    function removeTyping() {
-      const t = document.getElementById('typing');
-      if (t) t.remove();
-    }
-
     async function sendMessage() {
       const q = input.value.trim();
       if (!q || isStreaming) return;
@@ -597,35 +580,69 @@
       input.disabled = true;
 
       addMessage('', 'bot');
-      showTyping();
+      const bubble = messagesEl.querySelector('.message.bot:last-child .bubble');
+      const typing = document.createElement('div');
+      typing.className = 'typing-indicator';
+      for (let i = 0; i < 3; i++) typing.appendChild(document.createElement('span'));
+      bubble.appendChild(typing);
+
+      const renderText = t => { bubble.innerHTML = t.replace(/\n/g, '<br>'); };
 
       try {
         const docFilter = selectedDocs.size > 0 && selectedDocs.size < allDocs.length
           ? Array.from(selectedDocs) : null;
-        const res = await fetch('/api/chat', {
+        const res = await fetch('/api/chat/stream', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ question: q, documents: docFilter }),
         });
-        const data = await res.json();
-        removeTyping();
-        const last = messagesEl.querySelector('.message.bot:last-child');
-        if (last) {
-          const bubble = last.querySelector('.bubble');
-          if (bubble) {
-            bubble.innerHTML = data.answer.replace(/\n/g, '<br>');
-            if (data.sources && data.sources.length > 0) {
-              const srcDiv = document.createElement('div');
-              srcDiv.className = 'sources';
-              srcDiv.innerHTML = `<strong>Sources:</strong> ${data.sources.join(', ')}`;
-              bubble.appendChild(srcDiv);
+        if (!res.ok || !res.body) throw new Error('Request failed');
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '', answer = '', errorMsg = null, started = false;
+        let sources = [];
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const events = buffer.split('\n\n');
+          buffer = events.pop();
+          for (const ev of events) {
+            const line = ev.trim();
+            if (!line.startsWith('data:')) continue;
+            const payload = line.slice(5).trim();
+            if (!payload) continue;
+            let obj;
+            try { obj = JSON.parse(payload); } catch { continue; }
+            if (obj.token) {
+              if (!started) { bubble.innerHTML = ''; started = true; }
+              answer += obj.token;
+              renderText(answer);
+              messagesEl.scrollTop = messagesEl.scrollHeight;
+            } else if (obj.sources) {
+              sources = obj.sources;
+            } else if (obj.error) {
+              errorMsg = obj.error;
             }
+          }
+        }
+
+        if (errorMsg) {
+          renderText(errorMsg);
+        } else {
+          renderText(answer || 'No response.');
+          if (sources && sources.length > 0) {
+            const srcDiv = document.createElement('div');
+            srcDiv.className = 'sources';
+            srcDiv.innerHTML = `<strong>Sources:</strong> ${sources.join(', ')}`;
+            bubble.appendChild(srcDiv);
           }
         }
         messagesEl.scrollTop = messagesEl.scrollHeight;
       } catch (err) {
-        removeTyping();
-        addMessage('Sorry, something went wrong. Please try again.', 'bot');
+        renderText('Sorry, something went wrong. Please try again.');
       } finally {
         isStreaming = false;
         sendBtn.disabled = false;

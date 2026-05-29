@@ -11,10 +11,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
-from config import DOCUMENTS_DIR, UPLOADS_DIR, CHROMA_DB_DIR, COLLECTION_NAME, CHUNK_SIZE, CHUNK_OVERLAP, MAX_UPLOAD_SIZE_MB
+from config import DOCUMENTS_DIR, UPLOADS_DIR, CHROMA_DB_DIR, COLLECTION_NAME, MAX_UPLOAD_SIZE_MB
 from rag_engine import RAGEngine
 from embedding import OllamaEmbeddingFunction
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from ingest import chunk_documents
 from langchain_community.document_loaders import PyMuPDFLoader
 from langchain_community.vectorstores import Chroma
 
@@ -99,14 +99,7 @@ async def upload_document(file: UploadFile = File(...)):
     for doc in docs:
         doc.metadata["source"] = os.path.basename(filepath)
 
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=CHUNK_SIZE,
-        chunk_overlap=CHUNK_OVERLAP,
-        separators=["\n\n", "\n", ".", " ", ""],
-    )
-    chunks = splitter.split_documents(docs)
-    for i, chunk in enumerate(chunks):
-        chunk.metadata["chunk_index"] = i
+    chunks, ids = chunk_documents(docs)
 
     embeddings = OllamaEmbeddingFunction()
     vectorstore = Chroma(
@@ -114,7 +107,7 @@ async def upload_document(file: UploadFile = File(...)):
         embedding_function=embeddings,
         persist_directory=CHROMA_DB_DIR,
     )
-    vectorstore.add_documents(chunks)
+    vectorstore.add_documents(documents=chunks, ids=ids)
     vectorstore.persist()
 
     return {

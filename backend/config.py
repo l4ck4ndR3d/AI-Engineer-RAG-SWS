@@ -12,6 +12,6 @@ RETRIEVAL_K = 5
 
 OLLAMA_BASE_URL = "http://localhost:11434"
 EMBED_MODEL = "nomic-embed-text"
-LLM_MODEL = "qwen2.5-coder:3b"
+LLM_MODEL = "llama3.2:3b"
 
 MAX_UPLOAD_SIZE_MB = 20

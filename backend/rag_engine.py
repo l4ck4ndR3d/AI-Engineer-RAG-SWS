@@ -67,14 +67,20 @@ Answer:"""
             "model": LLM_MODEL,
             "prompt": full_prompt,
             "stream": False,
+            "keep_alive": "30m",
             "options": {"temperature": 0.1, "num_predict": 1024},
         }
-        response = httpx.post(
-            f"{OLLAMA_BASE_URL}/api/generate",
-            json=payload,
-            timeout=120,
-        )
-        response.raise_for_status()
+        try:
+            response = httpx.post(
+                f"{OLLAMA_BASE_URL}/api/generate",
+                json=payload,
+                timeout=300,
+            )
+            response.raise_for_status()
+        except httpx.TimeoutException:
+            return {"answer": "The model took too long to respond. Please try again.", "sources": []}
+        except httpx.HTTPError:
+            return {"answer": "Sorry, the answer service is unavailable right now. Please try again.", "sources": []}
         answer = response.json().get("response", "").strip()
         return {"answer": answer, "sources": sources}
 
@@ -100,24 +106,31 @@ Answer:"""
             "model": LLM_MODEL,
             "prompt": full_prompt,
             "stream": True,
+            "keep_alive": "30m",
             "options": {"temperature": 0.1, "num_predict": 1024},
         }
-        with httpx.Client() as client:
-            with client.stream(
-                "POST", f"{OLLAMA_BASE_URL}/api/generate",
-                json=payload,
-                timeout=120,
-            ) as resp:
-                for line in resp.iter_lines():
-                    if not line:
-                        continue
-                    try:
-                        data = json.loads(line)
-                        token = data.get("response", "")
-                        if token:
-                            yield f"data: {json.dumps({'token': token})}\n\n"
-                        if data.get("done", False):
-                            yield f"data: {json.dumps({'sources': sources})}\n\n"
-                            break
-                    except json.JSONDecodeError:
-                        continue
+        try:
+            with httpx.Client() as client:
+                with client.stream(
+                    "POST", f"{OLLAMA_BASE_URL}/api/generate",
+                    json=payload,
+                    timeout=300,
+                ) as resp:
+                    resp.raise_for_status()
+                    for line in resp.iter_lines():
+                        if not line:
+                            continue
+                        try:
+                            data = json.loads(line)
+                            token = data.get("response", "")
+                            if token:
+                                yield f"data: {json.dumps({'token': token})}\n\n"
+                            if data.get("done", False):
+                                yield f"data: {json.dumps({'sources': sources})}\n\n"
+                                return
+                        except json.JSONDecodeError:
+                            continue
+        except httpx.TimeoutException:
+            yield f"data: {json.dumps({'error': 'The model took too long to respond. Please try again.'})}\n\n"
+        except httpx.HTTPError:
+            yield f"data: {json.dumps({'error': 'Sorry, the answer service is unavailable right now. Please try again.'})}\n\n"

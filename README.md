@@ -10,8 +10,8 @@ A Retrieval-Augmented Generation (RAG) chatbot for SWS AI employees to query com
 
 - **Python 3.10+** (tested on 3.12)
 - **Ollama** with models:
-  - `nomic-embed-text` (embeddings)
-  - `qwen2.5-coder:3b` (LLM generation — ~3x faster than llama3.1:8b)
+  - `nomic-embed-text` (embeddings, 274 MB)
+  - `qwen2.5-coder:3b` (LLM generation, 1.9 GB — ~3x faster than llama3.1:8b)
 - **Pip packages** (see below)
 
 ### Installation
@@ -20,7 +20,7 @@ A Retrieval-Augmented Generation (RAG) chatbot for SWS AI employees to query com
 # Activate the Python environment
 source ~/Desktop/pyenv/bin/activate
 
-# Install dependencies (if not already present)
+# Install dependencies
 pip install fastapi uvicorn chromadb langchain langchain-community \
   langchain-text-splitters pymupdf pdfplumber httpx python-multipart
 ```
@@ -29,12 +29,11 @@ pip install fastapi uvicorn chromadb langchain langchain-community \
 
 ```bash
 # Option 1 — One-command launcher
-chmod +x run.sh
-./run.sh
+chmod +x run.sh && ./run.sh
 
 # Option 2 — Manual
 source ~/Desktop/pyenv/bin/activate
-python backend/ingest.py       # Index PDFs into ChromaDB (first run only)
+python backend/ingest.py            # Index PDFs into ChromaDB (first run only)
 uvicorn backend.main:app --host 0.0.0.0 --port 1234 --reload
 ```
 
@@ -51,10 +50,10 @@ Open **http://localhost:1234** in your browser.
 | Start development server | `uvicorn backend.main:app --host 0.0.0.0 --port 1234 --reload` |
 | Run with launcher | `./run.sh` |
 | Test health endpoint | `curl http://localhost:1234/health` |
-| Test chat API | `curl -X POST http://localhost:1234/api/chat -H "Content-Type: application/json" -d '{"question":"What is the leave policy?"}' ` |
+| Test chat API | `curl -X POST http://localhost:1234/api/chat -H "Content-Type: application/json" -d '{"question":"What is the leave policy?"}'` |
 | List indexed documents | `curl http://localhost:1234/api/documents` |
 | Upload a document | `curl -X POST http://localhost:1234/api/upload -F "file=@/path/to/doc.pdf"` |
-| Delete a document | `curl -X DELETE http://localhost:1234/api/documents/SWS-AI-hr-policy.pdf` |
+| Delete a user-uploaded document | `curl -X DELETE http://localhost:1234/api/documents/uploaded-file.pdf` |
 
 ---
 
@@ -64,20 +63,68 @@ Open **http://localhost:1234** in your browser.
 SWS/
 ├── backend/
 │   ├── __init__.py
-│   ├── main.py              # FastAPI app — API routes, CORS, static file serving
-│   ├── config.py            # Constants — paths, chunk size, model names, ports
-│   ├── rag_engine.py        # RAG logic — retrieval, prompt building, LLM query
-│   ├── embedding.py         # Custom Ollama embedding wrapper (parallelized)
+│   ├── main.py              # FastAPI app — API routes, CORS, static files, upload/delete
+│   ├── config.py            # Constants — paths, chunk size, model names
+│   ├── rag_engine.py        # RAG logic — retrieval, prompt building, LLM query with doc filters
+│   ├── embedding.py         # Custom Ollama embedding wrapper (parallelized ThreadPoolExecutor)
 │   └── ingest.py            # Batch PDF ingestion script (load, chunk, embed, store)
 ├── frontend/
 │   └── index.html           # Single-page chat UI — sidebar, upload modal, notifications
-├── Documents/               # 10 company PDFs (HR, leave, IT security, etc.)
-├── uploads/                 # User-uploaded PDFs (via the UI)
-├── chroma_db/               # Persistent Chroma vector store (auto-generated)
+├── Documents/               # 10 base company PDFs (HR, leave, IT security, etc.) — read-only
+├── uploads/                 # User-uploaded PDFs (via the UI) — deletable
+├── chroma_db/               # Persistent Chroma vector store (auto-generated, gitignored)
 ├── run.sh                   # One-command launcher
 ├── .gitignore
 └── README.md
 ```
+
+---
+
+## Features
+
+### Document Management
+- **Upload** — Drag-and-drop modal to upload new PDFs. Auto-chunked, embedded, and indexed
+- **Select/Deselect** — Checkbox per document + Select All / Deselect All to filter which documents the AI searches
+- **Remove** — Delete user-uploaded documents (original 10 company docs are protected)
+- **Real-time sidebar** — Document list refreshes immediately after upload or delete
+- **Resizable sidebar** — Drag the blue handle to adjust sidebar width (200–500px range)
+
+### RAG Chat
+- Natural language questions answered from company documents
+- Results grounded in retrieved chunks — no hallucination
+- Source documents displayed with every answer
+- Streaming support via Server-Sent Events (`POST /api/chat/stream`)
+- Document-level filtering — restrict queries to selected docs only
+
+### Performance
+- **Parallelized embeddings** — `ThreadPoolExecutor(8)` batches embedding calls concurrently
+- **qwen2.5-coder:3b** — Lightweight LLM (~3x faster than llama3.1:8b) with sufficient RAG quality
+- **Streaming** — Token-by-token LLM response reduces perceived latency
+
+---
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/` | Serve the chat UI |
+| `GET` | `/health` | Health check |
+| `GET` | `/api/documents` | List all indexed documents with sizes |
+| `POST` | `/api/chat` | Ask a question (returns answer + sources) |
+| `POST` | `/api/chat/stream` | Same as chat but with SSE streaming |
+| `POST` | `/api/upload` | Upload and index a new PDF document |
+| `DELETE` | `/api/documents/{filename}` | Remove a user-uploaded document and its embeddings |
+
+### Chat Request Body
+
+```json
+{
+  "question": "How many sick days do I get?",
+  "documents": ["SWS-AI-leave-policy.pdf", "SWS-AI-hr-policy.pdf"]
+}
+```
+
+The optional `documents` field restricts retrieval to the listed documents. If omitted or all selected, all documents are searched.
 
 ---
 
@@ -99,36 +146,11 @@ SWS/
 ### Why These Choices
 
 - **ChromaDB** — Local, zero-config, persistent. No external dependencies.
-- **nomic-embed-text** — Lightweight (274 MB), runs entirely on CPU via Ollama.
+- **nomic-embed-text** — Lightweight, runs entirely on CPU via Ollama.
 - **qwen2.5-coder:3b** — Much faster than llama3.1:8b (~3x speedup), sufficient quality for RAG.
 - **No LangChain LLM wrappers** — Raw httpx calls to Ollama API to avoid version compatibility issues.
 - **Parallel embeddings** — `ThreadPoolExecutor(8)` batches simultaneous embedding requests, reducing ingestion time.
-- **Vanilla JS frontend** — Zero build step, no framework overhead, one file to serve.
-
----
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/` | Serve the chat UI |
-| `GET` | `/health` | Health check |
-| `GET` | `/api/documents` | List all indexed documents with sizes |
-| `POST` | `/api/chat` | Ask a question (returns answer + sources) |
-| `POST` | `/api/chat/stream` | Same as chat but with SSE streaming |
-| `POST` | `/api/upload` | Upload and index a new PDF document |
-| `DELETE` | `/api/documents/{filename}` | Remove a document and its embeddings |
-
-### Chat Request Body
-
-```json
-{
-  "question": "How many sick days do I get?",
-  "documents": ["SWS-AI-leave-policy.pdf", "SWS-AI-hr-policy.pdf"]
-}
-```
-
-The optional `documents` field restricts retrieval to the listed documents. If omitted, all documents are searched.
+- **Vanilla JS frontend** — Zero build step, no framework overhead, single file to serve.
 
 ---
 
@@ -162,8 +184,9 @@ The optional `documents` field restricts retrieval to the listed documents. If o
 
 1. **Ollama must be running** on `localhost:11434` with the required models pulled (`nomic-embed-text`, `qwen2.5-coder:3b`).
 2. **Python environment** uses the pyenv at `~/Desktop/pyenv/` (run `source ~/Desktop/pyenv/bin/activate` to activate).
-3. **Uploaded documents** are stored in `uploads/` and added to the same ChromaDB collection. Documents in `Documents/` are not modifiable via the UI (they are the base company policies).
-4. **Removing a document** deletes both the file and its embeddings from ChromaDB. Re-upload the document to re-index it.
-5. **Select/deselect** checkboxes in the sidebar filter which documents the RAG engine searches. Only affects the current chat session.
-6. **Answer grounding** — The LLM is explicitly instructed to answer *only* from the provided context. If the answer is not in the documents, it responds: "I don't have that information in the company documents."
+3. **Uploaded documents** are stored in `uploads/` and added to the same ChromaDB collection. The 10 base company documents in `Documents/` are **read-only** and cannot be deleted via the API.
+4. **Removing a document** deletes both the file and its embeddings from ChromaDB. Re-upload to re-index.
+5. **Select/deselect** checkboxes in the sidebar filter which documents the RAG engine searches. Deselecting all docs defaults to searching everything.
+6. **Answer grounding** — The LLM is explicitly instructed to answer *only* from the provided context. If the answer is not in the documents, it responds: *"I don't have that information in the company documents."*
 7. **PDF parsing** uses PyMuPDF. Complex layouts (tables, multi-column) may not parse perfectly — text extraction quality depends on the PDF structure.
+8. **Images** (.png) are excluded from version control via `.gitignore`.
