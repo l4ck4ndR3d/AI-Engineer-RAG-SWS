@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SWS AI - Chatbot</title>
+  <title>SWS AI - RAG Chatbot</title>
   <link href="https://fonts.googleapis.com/css2?family=Livvic:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -15,7 +15,6 @@
       flex-direction: column;
     }
 
-    /* ---- Notification Bar ---- */
     .notification-bar {
       background: #1a56db;
       color: #fff;
@@ -35,22 +34,30 @@
     .notification-bar .close-btn:hover { color: #fff; }
     .notification-bar.hidden { display: none; }
 
-    /* ---- Main Layout ---- */
-    .app-layout {
-      display: flex;
-      flex: 1;
-      overflow: hidden;
-    }
+    .app-layout { display: flex; flex: 1; overflow: hidden; position: relative; }
 
-    /* ---- Sidebar ---- */
     .sidebar {
-      width: 280px;
+      width: 290px;
+      min-width: 200px;
+      max-width: 500px;
       background: #ffffff;
       border-right: 1px solid #e0e6ef;
       display: flex;
       flex-direction: column;
       flex-shrink: 0;
+      overflow: hidden;
     }
+    .resize-handle {
+      width: 6px;
+      cursor: col-resize;
+      background: transparent;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 10;
+      transition: background 0.15s;
+    }
+    .resize-handle:hover,
+    .resize-handle.active { background: #1a56db; }
     .sidebar-header {
       padding: 20px;
       border-bottom: 1px solid #e8edf5;
@@ -68,6 +75,14 @@
       color: #fff; font-weight: 700; font-size: 16px;
     }
     .sidebar-header h2 { font-size: 16px; font-weight: 600; color: #1a2b4a; }
+    .sidebar-header .doc-count {
+      margin-left: auto;
+      font-size: 12px;
+      color: #8899b0;
+      background: #f0f4fc;
+      padding: 2px 10px;
+      border-radius: 100px;
+    }
 
     .sidebar-section {
       padding: 16px 20px;
@@ -81,6 +96,7 @@
       color: #8899b0;
       margin-bottom: 12px;
     }
+
     .upload-btn {
       width: 100%;
       padding: 10px;
@@ -100,38 +116,88 @@
     }
     .upload-btn:hover { background: #1344b0; }
 
-    .doc-list {
-      list-style: none;
-      max-height: 200px;
+    .sidebar-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .sidebar-actions button {
+      flex: 1;
+      padding: 8px;
+      border-radius: 8px;
+      font-family: 'Livvic', sans-serif;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+    }
+    .btn-select-all { background: #e8edf5; color: #1a56db; }
+    .btn-select-all:hover { background: #d0d8e8; }
+    .btn-deselect-all { background: #f0f4fc; color: #5a6d8a; }
+    .btn-deselect-all:hover { background: #e0e6ef; }
+
+    .doc-scroll {
+      flex: 1;
       overflow-y: auto;
     }
-    .doc-list li {
-      padding: 8px 0;
-      font-size: 13px;
-      color: #3a4b6a;
+    .doc-list { list-style: none; }
+    .doc-item {
       display: flex;
       align-items: center;
-      gap: 8px;
-      border-bottom: 1px solid #f0f4fc;
+      gap: 10px;
+      padding: 10px 20px;
+      border-bottom: 1px solid #f5f7fa;
+      transition: background 0.15s;
     }
-    .doc-list li:last-child { border-bottom: none; }
-    .doc-list .doc-icon { color: #1a56db; font-size: 14px; }
-    .doc-list .doc-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .doc-list .doc-badge {
+    .doc-item:hover { background: #f8faff; }
+    .doc-item .doc-check {
+      width: 18px; height: 18px;
+      accent-color: #1a56db;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .doc-item .doc-icon { color: #1a56db; font-size: 14px; flex-shrink: 0; }
+    .doc-item .doc-name {
+      flex: 1;
+      font-size: 13px;
+      color: #1a2b4a;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .doc-item .doc-badge {
       font-size: 10px;
       background: #e8edf5;
       color: #5a6d8a;
-      padding: 1px 8px;
+      padding: 2px 8px;
       border-radius: 100px;
+      flex-shrink: 0;
+    }
+    .doc-item .doc-remove {
+      width: 24px; height: 24px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: #b0c0d8;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .doc-item .doc-remove:hover { background: #fee2e2; color: #ef4444; }
+
+    .doc-list-empty {
+      padding: 20px;
+      text-align: center;
+      color: #8899b0;
+      font-size: 13px;
     }
 
-    /* ---- Chat Area ---- */
-    .chat-area {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      background: #ffffff;
-    }
+    .chat-area { flex: 1; display: flex; flex-direction: column; background: #ffffff; }
     .chat-header {
       padding: 16px 28px;
       border-bottom: 1px solid #e8edf5;
@@ -139,18 +205,8 @@
       align-items: center;
       justify-content: space-between;
     }
-    .chat-header .status {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 14px;
-      color: #5a6d8a;
-    }
-    .chat-header .status-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: #22c55e;
-    }
+    .chat-header .status { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #5a6d8a; }
+    .chat-header .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
     .chat-header h1 { font-size: 18px; font-weight: 600; color: #1a2b4a; }
 
     .messages {
@@ -161,276 +217,132 @@
       flex-direction: column;
       gap: 16px;
     }
-    .message {
-      display: flex;
-      gap: 12px;
-      max-width: 85%;
-      animation: fadeIn 0.3s ease;
-    }
+    .message { display: flex; gap: 12px; max-width: 85%; animation: fadeIn 0.3s ease; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
     .message.user { align-self: flex-end; flex-direction: row-reverse; }
     .message.bot { align-self: flex-start; }
     .avatar {
-      width: 36px; height: 36px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 14px;
-      font-weight: 600;
-      flex-shrink: 0;
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 600; flex-shrink: 0;
     }
     .message.user .avatar { background: #1a56db; color: #fff; }
     .message.bot .avatar { background: #e8edf5; color: #1a56db; }
     .bubble {
-      padding: 14px 20px;
-      border-radius: 18px;
-      font-size: 15px;
-      line-height: 1.6;
+      padding: 14px 20px; border-radius: 18px;
+      font-size: 15px; line-height: 1.6;
     }
-    .message.user .bubble {
-      background: #1a56db;
-      color: #fff;
-      border-bottom-right-radius: 4px;
-    }
-    .message.bot .bubble {
-      background: #f0f4fc;
-      color: #1a2b4a;
-      border-bottom-left-radius: 4px;
-    }
+    .message.user .bubble { background: #1a56db; color: #fff; border-bottom-right-radius: 4px; }
+    .message.bot .bubble { background: #f0f4fc; color: #1a2b4a; border-bottom-left-radius: 4px; }
     .message.bot .bubble ul, .message.bot .bubble ol { margin: 6px 0 6px 18px; }
     .message.bot .bubble li { margin: 2px 0; }
-    .sources {
-      margin-top: 10px;
-      padding-top: 8px;
-      border-top: 1px solid #dce3ef;
-      font-size: 12px;
-      color: #5a6d8a;
-    }
+    .sources { margin-top: 10px; padding-top: 8px; border-top: 1px solid #dce3ef; font-size: 12px; color: #5a6d8a; }
     .sources strong { color: #1a56db; }
-    .typing-indicator {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 8px 0;
-    }
+    .typing-indicator { display: flex; align-items: center; gap: 4px; padding: 8px 0; }
     .typing-indicator span {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-      background: #a0b4d0;
+      width: 8px; height: 8px; border-radius: 50%; background: #a0b4d0;
       animation: typing 1.4s infinite ease-in-out;
     }
     .typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
     .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
-    @keyframes typing {
-      0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
-      30% { opacity: 1; transform: scale(1); }
-    }
-    .welcome {
-      text-align: center;
-      margin: auto;
-      color: #8899b0;
-      max-width: 400px;
-    }
-    .welcome .icon {
-      font-size: 48px;
-      margin-bottom: 12px;
-    }
+    @keyframes typing { 0%,60%,100% { opacity: 0.3; transform: scale(0.8); } 30% { opacity: 1; transform: scale(1); } }
+
+    .welcome { text-align: center; margin: auto; color: #8899b0; max-width: 420px; }
+    .welcome .icon { font-size: 48px; margin-bottom: 12px; }
     .welcome h2 { font-size: 18px; font-weight: 600; color: #1a2b4a; margin-bottom: 6px; }
     .welcome p { font-size: 14px; line-height: 1.5; }
-    .welcome .examples {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      justify-content: center;
-      margin-top: 16px;
-    }
+    .welcome .examples { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 16px; }
     .welcome .examples button {
-      background: #f0f4fc;
-      border: 1px solid #dce3ef;
-      border-radius: 100px;
-      padding: 8px 16px;
-      font-family: 'Livvic', sans-serif;
-      font-size: 13px;
-      color: #1a56db;
-      cursor: pointer;
-      transition: all 0.2s;
+      background: #f0f4fc; border: 1px solid #dce3ef; border-radius: 100px;
+      padding: 8px 16px; font-family: 'Livvic', sans-serif; font-size: 13px;
+      color: #1a56db; cursor: pointer; transition: all 0.2s;
     }
     .welcome .examples button:hover { background: #1a56db; color: #fff; border-color: #1a56db; }
 
     .input-area {
-      border-top: 1px solid #e8edf5;
-      padding: 16px 28px;
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      background: #fff;
+      border-top: 1px solid #e8edf5; padding: 16px 28px;
+      display: flex; gap: 12px; align-items: center; background: #fff;
     }
     .input-area input {
-      flex: 1;
-      border: 2px solid #e0e6ef;
-      border-radius: 12px;
-      padding: 12px 16px;
-      font-family: 'Livvic', sans-serif;
-      font-size: 15px;
-      outline: none;
-      transition: border 0.2s;
+      flex: 1; border: 2px solid #e0e6ef; border-radius: 12px;
+      padding: 12px 16px; font-family: 'Livvic', sans-serif;
+      font-size: 15px; outline: none; transition: border 0.2s;
     }
     .input-area input:focus { border-color: #1a56db; }
     .input-area button {
-      background: #1a56db;
-      color: #fff;
-      border: none;
-      border-radius: 12px;
-      padding: 12px 24px;
-      font-family: 'Livvic', sans-serif;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s;
-      white-space: nowrap;
+      background: #1a56db; color: #fff; border: none; border-radius: 12px;
+      padding: 12px 24px; font-family: 'Livvic', sans-serif;
+      font-size: 15px; font-weight: 600; cursor: pointer;
+      transition: background 0.2s; white-space: nowrap;
     }
     .input-area button:hover { background: #1344b0; }
     .input-area button:disabled { background: #a0b4d0; cursor: not-allowed; }
 
-    /* ---- Upload Modal ---- */
     .modal-overlay {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.4);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      animation: fadeIn 0.2s ease;
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.4); display: none;
+      align-items: center; justify-content: center; z-index: 1000;
     }
     .modal-overlay.active { display: flex; }
     .modal {
-      background: #fff;
-      border-radius: 20px;
-      padding: 32px;
-      width: 90%;
-      max-width: 520px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+      background: #fff; border-radius: 20px; padding: 32px;
+      width: 90%; max-width: 520px; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
     }
     .modal h2 { font-size: 20px; font-weight: 600; color: #1a2b4a; margin-bottom: 4px; }
     .modal p { font-size: 14px; color: #5a6d8a; margin-bottom: 20px; }
     .drop-zone {
-      border: 2px dashed #d0d8e8;
-      border-radius: 16px;
-      padding: 40px 20px;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.2s;
-      background: #f8faff;
+      border: 2px dashed #d0d8e8; border-radius: 16px;
+      padding: 40px 20px; text-align: center; cursor: pointer;
+      transition: all 0.2s; background: #f8faff;
     }
-    .drop-zone:hover, .drop-zone.drag-over {
-      border-color: #1a56db;
-      background: #eef4ff;
-    }
+    .drop-zone:hover, .drop-zone.drag-over { border-color: #1a56db; background: #eef4ff; }
     .drop-zone .upload-icon { font-size: 40px; color: #1a56db; margin-bottom: 12px; }
     .drop-zone .upload-text { font-size: 15px; color: #1a2b4a; font-weight: 500; }
     .drop-zone .upload-hint { font-size: 13px; color: #8899b0; margin-top: 4px; }
     .file-input { display: none; }
     .selected-file {
-      margin-top: 16px;
-      padding: 12px 16px;
-      background: #f0f4fc;
-      border-radius: 10px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
+      margin-top: 16px; padding: 12px 16px; background: #f0f4fc;
+      border-radius: 10px; display: flex; align-items: center; gap: 10px;
     }
     .selected-file .file-icon { color: #1a56db; }
     .selected-file .file-name { flex: 1; font-size: 14px; color: #1a2b4a; }
     .selected-file .file-size { font-size: 12px; color: #8899b0; }
-    .modal-actions {
-      display: flex;
-      gap: 12px;
-      margin-top: 20px;
-      justify-content: flex-end;
-    }
+    .modal-actions { display: flex; gap: 12px; margin-top: 20px; justify-content: flex-end; }
     .modal-actions button {
-      padding: 10px 24px;
-      border-radius: 10px;
-      font-family: 'Livvic', sans-serif;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
+      padding: 10px 24px; border-radius: 10px;
+      font-family: 'Livvic', sans-serif; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: all 0.2s;
     }
-    .modal-actions .btn-cancel {
-      background: #f0f4fc;
-      color: #5a6d8a;
-      border: none;
-    }
+    .modal-actions .btn-cancel { background: #f0f4fc; color: #5a6d8a; border: none; }
     .modal-actions .btn-cancel:hover { background: #e0e6ef; }
-    .modal-actions .btn-upload {
-      background: #1a56db;
-      color: #fff;
-      border: none;
-    }
+    .modal-actions .btn-upload { background: #1a56db; color: #fff; border: none; }
     .modal-actions .btn-upload:hover { background: #1344b0; }
     .modal-actions .btn-upload:disabled { background: #a0b4d0; cursor: not-allowed; }
-    .upload-progress {
-      margin-top: 16px;
-      display: none;
-    }
+    .upload-progress { margin-top: 16px; display: none; }
     .upload-progress.active { display: block; }
-    .progress-bar {
-      width: 100%;
-      height: 6px;
-      background: #e8edf5;
-      border-radius: 100px;
-      overflow: hidden;
-    }
-    .progress-bar .fill {
-      height: 100%;
-      background: #1a56db;
-      width: 0%;
-      transition: width 0.3s;
-      border-radius: 100px;
-    }
+    .progress-bar { width: 100%; height: 6px; background: #e8edf5; border-radius: 100px; overflow: hidden; }
+    .progress-bar .fill { height: 100%; background: #1a56db; width: 0%; transition: width 0.3s; border-radius: 100px; }
     .progress-text { font-size: 13px; color: #5a6d8a; margin-top: 6px; }
 
-    /* ---- Notification Toast ---- */
-    .toast-container {
-      position: fixed;
-      top: 70px;
-      right: 28px;
-      z-index: 999;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
+    .toast-container { position: fixed; top: 70px; right: 28px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
     .toast {
-      background: #fff;
-      border-radius: 12px;
-      padding: 14px 20px;
-      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 14px;
-      color: #1a2b4a;
-      animation: slideIn 0.3s ease;
-      min-width: 300px;
-      border-left: 4px solid #1a56db;
+      background: #fff; border-radius: 12px; padding: 14px 20px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12); display: flex; align-items: center; gap: 12px;
+      font-size: 14px; color: #1a2b4a; animation: slideIn 0.3s ease;
+      min-width: 300px; border-left: 4px solid #1a56db;
     }
     .toast.success { border-left-color: #22c55e; }
     .toast.error { border-left-color: #ef4444; }
     .toast .toast-icon { font-size: 20px; }
     @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 
-    /* ---- Scrollbar ---- */
-    .messages::-webkit-scrollbar, .doc-list::-webkit-scrollbar { width: 6px; }
-    .messages::-webkit-scrollbar-track { background: transparent; }
-    .messages::-webkit-scrollbar-thumb { background: #d0d8e8; border-radius: 100px; }
+    .messages::-webkit-scrollbar, .doc-scroll::-webkit-scrollbar { width: 6px; }
+    .messages::-webkit-scrollbar-track, .doc-scroll::-webkit-scrollbar-track { background: transparent; }
+    .messages::-webkit-scrollbar-thumb, .doc-scroll::-webkit-scrollbar-thumb { background: #d0d8e8; border-radius: 100px; }
   </style>
 </head>
 <body>
 
-  <!-- Notification Bar -->
   <div class="notification-bar" id="notificationBar">
     <div>
       <span class="bell">&#128276;</span>
@@ -439,33 +351,42 @@
     <button class="close-btn" onclick="document.getElementById('notificationBar').classList.add('hidden')">&times;</button>
   </div>
 
-  <!-- Toast Container -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <div class="app-layout">
+  <div class="app-layout" id="appLayout">
+
     <!-- Sidebar -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <div class="logo">S</div>
         <h2>SWS AI</h2>
+        <span class="doc-count" id="docCount">0</span>
       </div>
 
       <div class="sidebar-section">
-        <h3>Documents</h3>
+        <h3>Document Management</h3>
         <button class="upload-btn" onclick="openUploadModal()">
           <span>+</span> Upload PDF
         </button>
+        <div class="sidebar-actions">
+          <button class="btn-select-all" onclick="selectAllDocs()">Select All</button>
+          <button class="btn-deselect-all" onclick="deselectAllDocs()">Deselect All</button>
+        </div>
       </div>
 
-      <div class="sidebar-section" style="flex:1; overflow:hidden;">
-        <h3>Indexed Documents</h3>
-        <ul class="doc-list" id="docList">
-          <li style="color:#8899b0; font-size:13px;">Loading...</li>
-        </ul>
+      <div class="sidebar-section" style="flex:1; display:flex; flex-direction:column; overflow:hidden; border-bottom:none;">
+        <h3>Documents <span style="font-weight:400;text-transform:none;" id="selectedCount">(all selected)</span></h3>
+        <div class="doc-scroll">
+          <ul class="doc-list" id="docList">
+            <li class="doc-list-empty">Loading...</li>
+          </ul>
+        </div>
       </div>
     </aside>
 
-    <!-- Chat Area -->
+    <div class="resize-handle" id="resizeHandle"></div>
+
+    <!-- Chat -->
     <main class="chat-area">
       <div class="chat-header">
         <h1>AI Assistant</h1>
@@ -501,27 +422,21 @@
     <div class="modal">
       <h2>Upload Document</h2>
       <p>Upload a PDF document to index it for the AI assistant.</p>
-
       <div class="drop-zone" id="dropZone">
         <div class="upload-icon">&#128196;</div>
         <div class="upload-text">Click to browse or drag & drop</div>
         <div class="upload-hint">PDF files only, up to 20MB</div>
         <input type="file" class="file-input" id="fileInput" accept=".pdf" />
       </div>
-
       <div class="selected-file" id="selectedFile" style="display:none;">
         <span class="file-icon">&#128196;</span>
         <span class="file-name" id="fileName"></span>
         <span class="file-size" id="fileSize"></span>
       </div>
-
       <div class="upload-progress" id="uploadProgress">
-        <div class="progress-bar">
-          <div class="fill" id="progressFill"></div>
-        </div>
+        <div class="progress-bar"><div class="fill" id="progressFill"></div></div>
         <div class="progress-text" id="progressText">Uploading...</div>
       </div>
-
       <div class="modal-actions">
         <button class="btn-cancel" onclick="closeUploadModal()">Cancel</button>
         <button class="btn-upload" id="uploadBtn" disabled onclick="uploadFile()">Upload & Index</button>
@@ -535,43 +450,104 @@
     const input = document.getElementById('questionInput');
     const sendBtn = document.getElementById('sendBtn');
     const docList = document.getElementById('docList');
+    const docCount = document.getElementById('docCount');
+    const selectedCount = document.getElementById('selectedCount');
 
+    let allDocs = [];
+    let selectedDocs = new Set();
     let isStreaming = false;
 
-    /* ---- Toast Notifications ---- */
-    function showToast(message, type = 'success') {
-      const container = document.getElementById('toastContainer');
-      const toast = document.createElement('div');
-      toast.className = `toast ${type}`;
-      toast.innerHTML = `<span class="toast-icon">${type === 'success' ? '&#10003;' : type === 'error' ? '&#10007;' : '&#9888;'}</span> ${message}`;
-      container.appendChild(toast);
-      setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(100%)'; toast.style.transition = 'all 0.3s'; setTimeout(() => toast.remove(), 300); }, 4000);
+    function showToast(msg, type) {
+      const c = document.getElementById('toastContainer');
+      const t = document.createElement('div');
+      t.className = `toast ${type}`;
+      t.innerHTML = `<span class="toast-icon">${type==='success'?'&#10003;':type==='error'?'&#10007;':'&#9888;'}</span> ${msg}`;
+      c.appendChild(t);
+      setTimeout(() => { t.style.opacity='0'; t.style.transform='translateX(100%)'; t.style.transition='all 0.3s'; setTimeout(()=>t.remove(),300); }, 4000);
     }
 
-    /* ---- Document List ---- */
     async function loadDocuments() {
       try {
         const res = await fetch('/api/documents');
         const data = await res.json();
-        docList.innerHTML = '';
-        if (data.documents.length === 0) {
-          docList.innerHTML = '<li style="color:#8899b0;">No documents indexed</li>';
+        allDocs = data.documents;
+        docCount.textContent = allDocs.length;
+        if (allDocs.length === 0) {
+          docList.innerHTML = '<li class="doc-list-empty">No documents indexed</li>';
+          selectedCount.textContent = '(0 selected)';
           return;
         }
-        data.documents.forEach(doc => {
-          const li = document.createElement('li');
-          const size = doc.size > 1024 ? (doc.size / 1024).toFixed(1) + ' KB' : doc.size + ' B';
-          li.innerHTML = `<span class="doc-icon">&#128196;</span><span class="doc-name">${doc.name}</span><span class="doc-badge">${size}</span>`;
-          docList.appendChild(li);
-        });
+        const allNames = allDocs.map(d => d.name);
+        const hasAll = allNames.every(n => selectedDocs.has(n));
+        if (selectedDocs.size === 0 || !hasAll) {
+          selectedDocs = new Set(allNames);
+        }
+        renderDocList();
+        updateSelectedCount();
       } catch (e) {
-        docList.innerHTML = '<li style="color:#ef4444;">Failed to load documents</li>';
+        docList.innerHTML = '<li class="doc-list-empty" style="color:#ef4444;">Failed to load</li>';
       }
     }
-    loadDocuments();
 
-    /* ---- Messages ---- */
-    function addMessage(text, role, sources = []) {
+    function renderDocList() {
+      docList.innerHTML = '';
+      allDocs.forEach(doc => {
+        const li = document.createElement('li');
+        li.className = 'doc-item';
+        const sz = doc.size > 1024 ? (doc.size/1024).toFixed(1)+' KB' : doc.size+' B';
+        li.innerHTML = `
+          <input type="checkbox" class="doc-check" ${selectedDocs.has(doc.name)?'checked':''} data-name="${doc.name}">
+          <span class="doc-icon">&#128196;</span>
+          <span class="doc-name" title="${doc.name}">${doc.name}</span>
+          <span class="doc-badge">${sz}</span>
+          <button class="doc-remove" data-name="${doc.name}" title="Remove">&#10005;</button>
+        `;
+        const cb = li.querySelector('.doc-check');
+        cb.addEventListener('change', () => {
+          if (cb.checked) selectedDocs.add(doc.name);
+          else selectedDocs.delete(doc.name);
+          updateSelectedCount();
+        });
+        const rm = li.querySelector('.doc-remove');
+        rm.addEventListener('click', () => removeDocument(doc.name));
+        docList.appendChild(li);
+      });
+    }
+
+    function updateSelectedCount() {
+      const total = allDocs.length;
+      const sel = selectedDocs.size;
+      if (sel === total) selectedCount.textContent = '(all selected)';
+      else if (sel === 0) selectedCount.textContent = '(none selected)';
+      else selectedCount.textContent = `(${sel}/${total} selected)`;
+    }
+
+    function selectAllDocs() {
+      allDocs.forEach(d => selectedDocs.add(d.name));
+      renderDocList();
+      updateSelectedCount();
+    }
+
+    function deselectAllDocs() {
+      selectedDocs.clear();
+      renderDocList();
+      updateSelectedCount();
+    }
+
+    async function removeDocument(name) {
+      if (!confirm(`Remove "${name}" from the index?`)) return;
+      try {
+        const res = await fetch(`/api/documents/${encodeURIComponent(name)}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('Delete failed');
+        showToast(`Removed "${name}"`, 'success');
+        selectedDocs.delete(name);
+        loadDocuments();
+      } catch (e) {
+        showToast(`Failed to remove "${name}"`, 'error');
+      }
+    }
+
+    function addMessage(text, role, sources) {
       welcomeEl.style.display = 'none';
       const div = document.createElement('div');
       div.className = `message ${role}`;
@@ -581,7 +557,7 @@
       const bubble = document.createElement('div');
       bubble.className = 'bubble';
       bubble.innerHTML = text.replace(/\n/g, '<br>');
-      if (sources.length > 0) {
+      if (sources && sources.length > 0) {
         const srcDiv = document.createElement('div');
         srcDiv.className = 'sources';
         srcDiv.innerHTML = `<strong>Sources:</strong> ${sources.join(', ')}`;
@@ -593,56 +569,28 @@
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
-    function updateLastBotMessage(token) {
-      const last = messagesEl.querySelector('.message.bot:last-child');
-      if (!last) {
-        addMessage('', 'bot');
-        return updateLastBotMessage(token);
-      }
-      const bubble = last.querySelector('.bubble');
-      if (bubble) {
-        const srcDiv = bubble.querySelector('.sources');
-        const textNode = srcDiv ? bubble.innerHTML.split('<div class="sources"')[0] : bubble.innerHTML;
-        const newText = textNode + token;
-        if (srcDiv) {
-          bubble.innerHTML = newText.replace(/\n/g, '<br>') + srcDiv.outerHTML;
-        } else {
-          bubble.innerHTML = newText.replace(/\n/g, '<br>');
-        }
-      }
-      messagesEl.scrollTop = messagesEl.scrollHeight;
-    }
-
     function showTyping() {
       const div = document.createElement('div');
-      div.className = 'message bot';
-      div.id = 'typing';
-      const avatar = document.createElement('div');
-      avatar.className = 'avatar';
-      avatar.textContent = 'S';
-      const bubble = document.createElement('div');
-      bubble.className = 'bubble';
-      const indicator = document.createElement('div');
-      indicator.className = 'typing-indicator';
-      for (let i = 0; i < 3; i++) indicator.appendChild(document.createElement('span'));
-      bubble.appendChild(indicator);
-      div.appendChild(avatar);
-      div.appendChild(bubble);
+      div.className = 'message bot'; div.id = 'typing';
+      const avatar = document.createElement('div'); avatar.className = 'avatar'; avatar.textContent = 'S';
+      const bubble = document.createElement('div'); bubble.className = 'bubble';
+      const ind = document.createElement('div'); ind.className = 'typing-indicator';
+      for (let i = 0; i < 3; i++) ind.appendChild(document.createElement('span'));
+      bubble.appendChild(ind); div.appendChild(avatar); div.appendChild(bubble);
       messagesEl.appendChild(div);
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
     function removeTyping() {
-      const typing = document.getElementById('typing');
-      if (typing) typing.remove();
+      const t = document.getElementById('typing');
+      if (t) t.remove();
     }
 
-    /* ---- Streaming Chat ---- */
     async function sendMessage() {
-      const question = input.value.trim();
-      if (!question || isStreaming) return;
+      const q = input.value.trim();
+      if (!q || isStreaming) return;
       input.value = '';
-      addMessage(question, 'user');
+      addMessage(q, 'user');
 
       isStreaming = true;
       sendBtn.disabled = true;
@@ -652,10 +600,12 @@
       showTyping();
 
       try {
+        const docFilter = selectedDocs.size > 0 && selectedDocs.size < allDocs.length
+          ? Array.from(selectedDocs) : null;
         const res = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ question }),
+          body: JSON.stringify({ question: q, documents: docFilter }),
         });
         const data = await res.json();
         removeTyping();
@@ -690,7 +640,9 @@
     }
 
     sendBtn.addEventListener('click', sendMessage);
-    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMessage(); });
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage(); });
+
+    loadDocuments();
 
     /* ---- Upload Modal ---- */
     const uploadModal = document.getElementById('uploadModal');
@@ -703,67 +655,41 @@
     const uploadProgress = document.getElementById('uploadProgress');
     const progressFill = document.getElementById('progressFill');
     const progressText = document.getElementById('progressText');
-
     let selectedFileData = null;
 
     function openUploadModal() {
-      uploadModal.classList.add('active');
-      selectedFile.style.display = 'none';
-      uploadBtn.disabled = true;
-      uploadProgress.classList.remove('active');
-      selectedFileData = null;
-      fileInput.value = '';
+      uploadModal.classList.add('active'); selectedFile.style.display = 'none';
+      uploadBtn.disabled = true; uploadProgress.classList.remove('active');
+      selectedFileData = null; fileInput.value = '';
     }
-
-    function closeUploadModal() {
-      uploadModal.classList.remove('active');
-    }
+    function closeUploadModal() { uploadModal.classList.remove('active'); }
 
     dropZone.addEventListener('click', () => fileInput.click());
-
-    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
     dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
-    dropZone.addEventListener('drop', (e) => {
-      e.preventDefault();
-      dropZone.classList.remove('drag-over');
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault(); dropZone.classList.remove('drag-over');
       if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
     });
-
-    fileInput.addEventListener('change', () => {
-      if (fileInput.files.length > 0) handleFile(fileInput.files[0]);
-    });
+    fileInput.addEventListener('change', () => { if (fileInput.files.length > 0) handleFile(fileInput.files[0]); });
 
     function handleFile(file) {
-      if (!file.name.toLowerCase().endsWith('.pdf')) {
-        showToast('Only PDF files are accepted.', 'error');
-        return;
-      }
-      if (file.size > 20 * 1024 * 1024) {
-        showToast('File exceeds 20MB limit.', 'error');
-        return;
-      }
+      if (!file.name.toLowerCase().endsWith('.pdf')) { showToast('Only PDF files accepted.', 'error'); return; }
+      if (file.size > 20*1024*1024) { showToast('File exceeds 20MB limit.', 'error'); return; }
       selectedFileData = file;
       fileName.textContent = file.name;
-      fileSize.textContent = file.size > 1024 ? (file.size / 1024).toFixed(1) + ' KB' : file.size + ' B';
+      fileSize.textContent = file.size > 1024 ? (file.size/1024).toFixed(1)+' KB' : file.size+' B';
       selectedFile.style.display = 'flex';
       uploadBtn.disabled = false;
     }
 
     async function uploadFile() {
       if (!selectedFileData) return;
-      uploadBtn.disabled = true;
-      uploadProgress.classList.add('active');
-      progressFill.style.width = '0%';
-      progressText.textContent = 'Uploading...';
-
-      const formData = new FormData();
-      formData.append('file', selectedFileData);
-
+      uploadBtn.disabled = true; uploadProgress.classList.add('active');
+      progressFill.style.width = '0%'; progressText.textContent = 'Uploading...';
+      const fd = new FormData(); fd.append('file', selectedFileData);
       try {
-        const res = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData,
-        });
+        const res = await fetch('/api/upload', { method: 'POST', body: fd });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'Upload failed');
         progressFill.style.width = '100%';
@@ -774,16 +700,40 @@
         document.getElementById('notifText').textContent = `New document "${data.filename}" indexed (${data.chunks} chunks).`;
         setTimeout(closeUploadModal, 1500);
       } catch (err) {
-        progressFill.style.width = '0%';
-        progressText.textContent = err.message;
+        progressFill.style.width = '0%'; progressText.textContent = err.message;
         showToast(err.message, 'error');
         uploadBtn.disabled = false;
       }
     }
 
-    /* ---- Close modal on overlay click ---- */
-    uploadModal.addEventListener('click', (e) => {
-      if (e.target === uploadModal) closeUploadModal();
+    uploadModal.addEventListener('click', e => { if (e.target === uploadModal) closeUploadModal(); });
+
+    /* ---- Resizable Sidebar ---- */
+    const sidebar = document.getElementById('sidebar');
+    const handle = document.getElementById('resizeHandle');
+    let isResizing = false;
+
+    handle.addEventListener('mousedown', e => {
+      isResizing = true;
+      handle.classList.add('active');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    });
+
+    document.addEventListener('mousemove', e => {
+      if (!isResizing) return;
+      let w = e.clientX;
+      w = Math.max(200, Math.min(500, w));
+      sidebar.style.width = w + 'px';
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isResizing) {
+        isResizing = false;
+        handle.classList.remove('active');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
     });
   </script>
 </body>

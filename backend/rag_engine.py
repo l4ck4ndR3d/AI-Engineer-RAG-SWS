@@ -26,8 +26,13 @@ class RAGEngine:
             persist_directory=CHROMA_DB_DIR,
         )
 
-    def retrieve(self, question: str):
-        results = self.vectorstore.similarity_search_with_score(question, k=RETRIEVAL_K)
+    def retrieve(self, question: str, doc_filter: list[str] | None = None):
+        where_filter = None
+        if doc_filter:
+            where_filter = {"source": {"$in": doc_filter}}
+        results = self.vectorstore.similarity_search_with_score(
+            question, k=RETRIEVAL_K, filter=where_filter
+        )
         return results
 
     def format_context(self, results):
@@ -42,9 +47,12 @@ class RAGEngine:
                 sources.append(src)
         return "\n\n".join(context_parts), sources
 
-    def query(self, question: str):
-        results = self.retrieve(question)
+    def query(self, question: str, doc_filter: list[str] | None = None):
+        results = self.retrieve(question, doc_filter)
         context, sources = self.format_context(results)
+
+        if not context.strip():
+            return {"answer": "I don't have that information in the company documents.", "sources": []}
 
         full_prompt = f"""{SYSTEM_PROMPT}
 
@@ -70,9 +78,14 @@ Answer:"""
         answer = response.json().get("response", "").strip()
         return {"answer": answer, "sources": sources}
 
-    def query_stream(self, question: str):
-        results = self.retrieve(question)
+    def query_stream(self, question: str, doc_filter: list[str] | None = None):
+        results = self.retrieve(question, doc_filter)
         context, sources = self.format_context(results)
+
+        if not context.strip():
+            yield f"data: {json.dumps({'token': "I don't have that information in the company documents."})}\n\n"
+            yield f"data: {json.dumps({'sources': []})}\n\n"
+            return
 
         full_prompt = f"""{SYSTEM_PROMPT}
 
