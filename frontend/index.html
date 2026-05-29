@@ -4,50 +4,155 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SWS AI - Chatbot</title>
-  <link href="https://fonts.googleapis.com/css2?family=Livvic:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Livvic:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Livvic', sans-serif;
-      background: #f5f7fb;
+      background: #f0f4fc;
       height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ---- Notification Bar ---- */
+    .notification-bar {
+      background: #1a56db;
+      color: #fff;
+      padding: 10px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+    }
+    .notification-bar .bell { font-size: 18px; margin-right: 10px; }
+    .notification-bar .close-btn {
+      background: none; border: none; color: rgba(255,255,255,0.7);
+      font-size: 18px; cursor: pointer; padding: 0 8px;
+    }
+    .notification-bar .close-btn:hover { color: #fff; }
+    .notification-bar.hidden { display: none; }
+
+    /* ---- Main Layout ---- */
+    .app-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ---- Sidebar ---- */
+    .sidebar {
+      width: 280px;
+      background: #ffffff;
+      border-right: 1px solid #e0e6ef;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+    .sidebar-header {
+      padding: 20px;
+      border-bottom: 1px solid #e8edf5;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sidebar-header .logo {
+      width: 36px; height: 36px;
+      background: #1a56db;
+      border-radius: 10px;
       display: flex;
       align-items: center;
       justify-content: center;
+      color: #fff; font-weight: 700; font-size: 16px;
     }
-    .chat-container {
+    .sidebar-header h2 { font-size: 16px; font-weight: 600; color: #1a2b4a; }
+
+    .sidebar-section {
+      padding: 16px 20px;
+      border-bottom: 1px solid #e8edf5;
+    }
+    .sidebar-section h3 {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #8899b0;
+      margin-bottom: 12px;
+    }
+    .upload-btn {
       width: 100%;
-      max-width: 780px;
-      height: 100vh;
-      max-height: 860px;
-      background: #ffffff;
-      border-radius: 24px;
-      box-shadow: 0 8px 40px rgba(0, 20, 60, 0.12);
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-    }
-    .chat-header {
+      padding: 10px;
       background: #1a56db;
-      padding: 20px 28px;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-family: 'Livvic', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
       display: flex;
       align-items: center;
-      gap: 12px;
+      justify-content: center;
+      gap: 8px;
     }
-    .chat-header h1 {
-      color: #fff;
-      font-size: 20px;
-      font-weight: 600;
-      letter-spacing: -0.02em;
+    .upload-btn:hover { background: #1344b0; }
+
+    .doc-list {
+      list-style: none;
+      max-height: 200px;
+      overflow-y: auto;
     }
-    .chat-header .badge {
-      background: rgba(255,255,255,0.2);
-      color: #fff;
-      font-size: 11px;
-      padding: 2px 10px;
+    .doc-list li {
+      padding: 8px 0;
+      font-size: 13px;
+      color: #3a4b6a;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid #f0f4fc;
+    }
+    .doc-list li:last-child { border-bottom: none; }
+    .doc-list .doc-icon { color: #1a56db; font-size: 14px; }
+    .doc-list .doc-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .doc-list .doc-badge {
+      font-size: 10px;
+      background: #e8edf5;
+      color: #5a6d8a;
+      padding: 1px 8px;
       border-radius: 100px;
-      font-weight: 500;
     }
+
+    /* ---- Chat Area ---- */
+    .chat-area {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #ffffff;
+    }
+    .chat-header {
+      padding: 16px 28px;
+      border-bottom: 1px solid #e8edf5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .chat-header .status {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: #5a6d8a;
+    }
+    .chat-header .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+    }
+    .chat-header h1 { font-size: 18px; font-weight: 600; color: #1a2b4a; }
+
     .messages {
       flex: 1;
       overflow-y: auto;
@@ -66,8 +171,7 @@
     .message.user { align-self: flex-end; flex-direction: row-reverse; }
     .message.bot { align-self: flex-start; }
     .avatar {
-      width: 36px;
-      height: 36px;
+      width: 36px; height: 36px;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -79,10 +183,10 @@
     .message.user .avatar { background: #1a56db; color: #fff; }
     .message.bot .avatar { background: #e8edf5; color: #1a56db; }
     .bubble {
-      padding: 12px 18px;
+      padding: 14px 20px;
       border-radius: 18px;
       font-size: 15px;
-      line-height: 1.55;
+      line-height: 1.6;
     }
     .message.user .bubble {
       background: #1a56db;
@@ -94,8 +198,12 @@
       color: #1a2b4a;
       border-bottom-left-radius: 4px;
     }
+    .message.bot .bubble ul, .message.bot .bubble ol { margin: 6px 0 6px 18px; }
+    .message.bot .bubble li { margin: 2px 0; }
     .sources {
-      margin-top: 8px;
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid #dce3ef;
       font-size: 12px;
       color: #5a6d8a;
     }
@@ -104,11 +212,10 @@
       display: flex;
       align-items: center;
       gap: 4px;
-      padding: 4px 0;
+      padding: 8px 0;
     }
     .typing-indicator span {
-      width: 8px;
-      height: 8px;
+      width: 8px; height: 8px;
       border-radius: 50%;
       background: #a0b4d0;
       animation: typing 1.4s infinite ease-in-out;
@@ -119,12 +226,45 @@
       0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
       30% { opacity: 1; transform: scale(1); }
     }
+    .welcome {
+      text-align: center;
+      margin: auto;
+      color: #8899b0;
+      max-width: 400px;
+    }
+    .welcome .icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+    .welcome h2 { font-size: 18px; font-weight: 600; color: #1a2b4a; margin-bottom: 6px; }
+    .welcome p { font-size: 14px; line-height: 1.5; }
+    .welcome .examples {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 16px;
+    }
+    .welcome .examples button {
+      background: #f0f4fc;
+      border: 1px solid #dce3ef;
+      border-radius: 100px;
+      padding: 8px 16px;
+      font-family: 'Livvic', sans-serif;
+      font-size: 13px;
+      color: #1a56db;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .welcome .examples button:hover { background: #1a56db; color: #fff; border-color: #1a56db; }
+
     .input-area {
       border-top: 1px solid #e8edf5;
       padding: 16px 28px;
       display: flex;
       gap: 12px;
       align-items: center;
+      background: #fff;
     }
     .input-area input {
       flex: 1;
@@ -148,35 +288,244 @@
       font-weight: 600;
       cursor: pointer;
       transition: background 0.2s;
+      white-space: nowrap;
     }
     .input-area button:hover { background: #1344b0; }
     .input-area button:disabled { background: #a0b4d0; cursor: not-allowed; }
-    .welcome {
-      text-align: center;
-      margin: auto;
-      color: #8899b0;
+
+    /* ---- Upload Modal ---- */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      animation: fadeIn 0.2s ease;
     }
-    .welcome h2 { font-size: 18px; font-weight: 600; color: #1a2b4a; margin-bottom: 6px; }
-    .welcome p { font-size: 14px; }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: #fff;
+      border-radius: 20px;
+      padding: 32px;
+      width: 90%;
+      max-width: 520px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    }
+    .modal h2 { font-size: 20px; font-weight: 600; color: #1a2b4a; margin-bottom: 4px; }
+    .modal p { font-size: 14px; color: #5a6d8a; margin-bottom: 20px; }
+    .drop-zone {
+      border: 2px dashed #d0d8e8;
+      border-radius: 16px;
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #f8faff;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: #1a56db;
+      background: #eef4ff;
+    }
+    .drop-zone .upload-icon { font-size: 40px; color: #1a56db; margin-bottom: 12px; }
+    .drop-zone .upload-text { font-size: 15px; color: #1a2b4a; font-weight: 500; }
+    .drop-zone .upload-hint { font-size: 13px; color: #8899b0; margin-top: 4px; }
+    .file-input { display: none; }
+    .selected-file {
+      margin-top: 16px;
+      padding: 12px 16px;
+      background: #f0f4fc;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .selected-file .file-icon { color: #1a56db; }
+    .selected-file .file-name { flex: 1; font-size: 14px; color: #1a2b4a; }
+    .selected-file .file-size { font-size: 12px; color: #8899b0; }
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 20px;
+      justify-content: flex-end;
+    }
+    .modal-actions button {
+      padding: 10px 24px;
+      border-radius: 10px;
+      font-family: 'Livvic', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .modal-actions .btn-cancel {
+      background: #f0f4fc;
+      color: #5a6d8a;
+      border: none;
+    }
+    .modal-actions .btn-cancel:hover { background: #e0e6ef; }
+    .modal-actions .btn-upload {
+      background: #1a56db;
+      color: #fff;
+      border: none;
+    }
+    .modal-actions .btn-upload:hover { background: #1344b0; }
+    .modal-actions .btn-upload:disabled { background: #a0b4d0; cursor: not-allowed; }
+    .upload-progress {
+      margin-top: 16px;
+      display: none;
+    }
+    .upload-progress.active { display: block; }
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: #e8edf5;
+      border-radius: 100px;
+      overflow: hidden;
+    }
+    .progress-bar .fill {
+      height: 100%;
+      background: #1a56db;
+      width: 0%;
+      transition: width 0.3s;
+      border-radius: 100px;
+    }
+    .progress-text { font-size: 13px; color: #5a6d8a; margin-top: 6px; }
+
+    /* ---- Notification Toast ---- */
+    .toast-container {
+      position: fixed;
+      top: 70px;
+      right: 28px;
+      z-index: 999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .toast {
+      background: #fff;
+      border-radius: 12px;
+      padding: 14px 20px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      color: #1a2b4a;
+      animation: slideIn 0.3s ease;
+      min-width: 300px;
+      border-left: 4px solid #1a56db;
+    }
+    .toast.success { border-left-color: #22c55e; }
+    .toast.error { border-left-color: #ef4444; }
+    .toast .toast-icon { font-size: 20px; }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* ---- Scrollbar ---- */
+    .messages::-webkit-scrollbar, .doc-list::-webkit-scrollbar { width: 6px; }
+    .messages::-webkit-scrollbar-track { background: transparent; }
+    .messages::-webkit-scrollbar-thumb { background: #d0d8e8; border-radius: 100px; }
   </style>
 </head>
 <body>
-  <div class="chat-container">
-    <div class="chat-header">
-      <h1>SWS AI Assistant</h1>
-      <span class="badge">RAG</span>
-    </div>
 
-    <div class="messages" id="messages">
-      <div class="welcome" id="welcome">
-        <h2>Hello! How can I help you?</h2>
-        <p>Ask me about company policies, leave, HR, IT security, and more.</p>
+  <!-- Notification Bar -->
+  <div class="notification-bar" id="notificationBar">
+    <div>
+      <span class="bell">&#128276;</span>
+      <span id="notifText">All 10 company documents indexed. Ready to answer your questions.</span>
+    </div>
+    <button class="close-btn" onclick="document.getElementById('notificationBar').classList.add('hidden')">&times;</button>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <div class="app-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">S</div>
+        <h2>SWS AI</h2>
       </div>
-    </div>
 
-    <div class="input-area">
-      <input type="text" id="questionInput" placeholder="Ask a question..." autofocus />
-      <button id="sendBtn">Send</button>
+      <div class="sidebar-section">
+        <h3>Documents</h3>
+        <button class="upload-btn" onclick="openUploadModal()">
+          <span>+</span> Upload PDF
+        </button>
+      </div>
+
+      <div class="sidebar-section" style="flex:1; overflow:hidden;">
+        <h3>Indexed Documents</h3>
+        <ul class="doc-list" id="docList">
+          <li style="color:#8899b0; font-size:13px;">Loading...</li>
+        </ul>
+      </div>
+    </aside>
+
+    <!-- Chat Area -->
+    <main class="chat-area">
+      <div class="chat-header">
+        <h1>AI Assistant</h1>
+        <div class="status">
+          <span class="status-dot"></span>
+          <span>Online</span>
+        </div>
+      </div>
+
+      <div class="messages" id="messages">
+        <div class="welcome" id="welcome">
+          <div class="icon">&#129302;</div>
+          <h2>Hello! How can I help you?</h2>
+          <p>Ask me anything about SWS AI company policies — leave, HR, IT security, benefits, and more.</p>
+          <div class="examples">
+            <button onclick="askExample('What is the annual leave policy at SWS AI?')">Annual Leave</button>
+            <button onclick="askExample('How many days of sick leave do employees get?')">Sick Leave</button>
+            <button onclick="askExample('What is the password policy?')">Password Policy</button>
+            <button onclick="askExample('What are the WFH guidelines?')">WFH Guidelines</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-area">
+        <input type="text" id="questionInput" placeholder="Ask a question about company policies..." autofocus />
+        <button id="sendBtn">Send</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- Upload Modal -->
+  <div class="modal-overlay" id="uploadModal">
+    <div class="modal">
+      <h2>Upload Document</h2>
+      <p>Upload a PDF document to index it for the AI assistant.</p>
+
+      <div class="drop-zone" id="dropZone">
+        <div class="upload-icon">&#128196;</div>
+        <div class="upload-text">Click to browse or drag & drop</div>
+        <div class="upload-hint">PDF files only, up to 20MB</div>
+        <input type="file" class="file-input" id="fileInput" accept=".pdf" />
+      </div>
+
+      <div class="selected-file" id="selectedFile" style="display:none;">
+        <span class="file-icon">&#128196;</span>
+        <span class="file-name" id="fileName"></span>
+        <span class="file-size" id="fileSize"></span>
+      </div>
+
+      <div class="upload-progress" id="uploadProgress">
+        <div class="progress-bar">
+          <div class="fill" id="progressFill"></div>
+        </div>
+        <div class="progress-text" id="progressText">Uploading...</div>
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeUploadModal()">Cancel</button>
+        <button class="btn-upload" id="uploadBtn" disabled onclick="uploadFile()">Upload & Index</button>
+      </div>
     </div>
   </div>
 
@@ -185,7 +534,43 @@
     const welcomeEl = document.getElementById('welcome');
     const input = document.getElementById('questionInput');
     const sendBtn = document.getElementById('sendBtn');
+    const docList = document.getElementById('docList');
 
+    let isStreaming = false;
+
+    /* ---- Toast Notifications ---- */
+    function showToast(message, type = 'success') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `<span class="toast-icon">${type === 'success' ? '&#10003;' : type === 'error' ? '&#10007;' : '&#9888;'}</span> ${message}`;
+      container.appendChild(toast);
+      setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(100%)'; toast.style.transition = 'all 0.3s'; setTimeout(() => toast.remove(), 300); }, 4000);
+    }
+
+    /* ---- Document List ---- */
+    async function loadDocuments() {
+      try {
+        const res = await fetch('/api/documents');
+        const data = await res.json();
+        docList.innerHTML = '';
+        if (data.documents.length === 0) {
+          docList.innerHTML = '<li style="color:#8899b0;">No documents indexed</li>';
+          return;
+        }
+        data.documents.forEach(doc => {
+          const li = document.createElement('li');
+          const size = doc.size > 1024 ? (doc.size / 1024).toFixed(1) + ' KB' : doc.size + ' B';
+          li.innerHTML = `<span class="doc-icon">&#128196;</span><span class="doc-name">${doc.name}</span><span class="doc-badge">${size}</span>`;
+          docList.appendChild(li);
+        });
+      } catch (e) {
+        docList.innerHTML = '<li style="color:#ef4444;">Failed to load documents</li>';
+      }
+    }
+    loadDocuments();
+
+    /* ---- Messages ---- */
     function addMessage(text, role, sources = []) {
       welcomeEl.style.display = 'none';
       const div = document.createElement('div');
@@ -195,7 +580,7 @@
       avatar.textContent = role === 'user' ? 'U' : 'S';
       const bubble = document.createElement('div');
       bubble.className = 'bubble';
-      bubble.textContent = text;
+      bubble.innerHTML = text.replace(/\n/g, '<br>');
       if (sources.length > 0) {
         const srcDiv = document.createElement('div');
         srcDiv.className = 'sources';
@@ -205,6 +590,26 @@
       div.appendChild(avatar);
       div.appendChild(bubble);
       messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function updateLastBotMessage(token) {
+      const last = messagesEl.querySelector('.message.bot:last-child');
+      if (!last) {
+        addMessage('', 'bot');
+        return updateLastBotMessage(token);
+      }
+      const bubble = last.querySelector('.bubble');
+      if (bubble) {
+        const srcDiv = bubble.querySelector('.sources');
+        const textNode = srcDiv ? bubble.innerHTML.split('<div class="sources"')[0] : bubble.innerHTML;
+        const newText = textNode + token;
+        if (srcDiv) {
+          bubble.innerHTML = newText.replace(/\n/g, '<br>') + srcDiv.outerHTML;
+        } else {
+          bubble.innerHTML = newText.replace(/\n/g, '<br>');
+        }
+      }
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
@@ -232,14 +637,20 @@
       if (typing) typing.remove();
     }
 
+    /* ---- Streaming Chat ---- */
     async function sendMessage() {
       const question = input.value.trim();
-      if (!question) return;
+      if (!question || isStreaming) return;
       input.value = '';
       addMessage(question, 'user');
-      showTyping();
+
+      isStreaming = true;
       sendBtn.disabled = true;
       input.disabled = true;
+
+      addMessage('', 'bot');
+      showTyping();
+
       try {
         const res = await fetch('/api/chat', {
           method: 'POST',
@@ -248,19 +659,132 @@
         });
         const data = await res.json();
         removeTyping();
-        addMessage(data.answer, 'bot', data.sources || []);
+        const last = messagesEl.querySelector('.message.bot:last-child');
+        if (last) {
+          const bubble = last.querySelector('.bubble');
+          if (bubble) {
+            bubble.innerHTML = data.answer.replace(/\n/g, '<br>');
+            if (data.sources && data.sources.length > 0) {
+              const srcDiv = document.createElement('div');
+              srcDiv.className = 'sources';
+              srcDiv.innerHTML = `<strong>Sources:</strong> ${data.sources.join(', ')}`;
+              bubble.appendChild(srcDiv);
+            }
+          }
+        }
+        messagesEl.scrollTop = messagesEl.scrollHeight;
       } catch (err) {
         removeTyping();
         addMessage('Sorry, something went wrong. Please try again.', 'bot');
       } finally {
+        isStreaming = false;
         sendBtn.disabled = false;
         input.disabled = false;
         input.focus();
       }
     }
 
+    function askExample(q) {
+      input.value = q;
+      sendMessage();
+    }
+
     sendBtn.addEventListener('click', sendMessage);
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') sendMessage(); });
+
+    /* ---- Upload Modal ---- */
+    const uploadModal = document.getElementById('uploadModal');
+    const fileInput = document.getElementById('fileInput');
+    const dropZone = document.getElementById('dropZone');
+    const selectedFile = document.getElementById('selectedFile');
+    const fileName = document.getElementById('fileName');
+    const fileSize = document.getElementById('fileSize');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const uploadProgress = document.getElementById('uploadProgress');
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+
+    let selectedFileData = null;
+
+    function openUploadModal() {
+      uploadModal.classList.add('active');
+      selectedFile.style.display = 'none';
+      uploadBtn.disabled = true;
+      uploadProgress.classList.remove('active');
+      selectedFileData = null;
+      fileInput.value = '';
+    }
+
+    function closeUploadModal() {
+      uploadModal.classList.remove('active');
+    }
+
+    dropZone.addEventListener('click', () => fileInput.click());
+
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+    });
+
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length > 0) handleFile(fileInput.files[0]);
+    });
+
+    function handleFile(file) {
+      if (!file.name.toLowerCase().endsWith('.pdf')) {
+        showToast('Only PDF files are accepted.', 'error');
+        return;
+      }
+      if (file.size > 20 * 1024 * 1024) {
+        showToast('File exceeds 20MB limit.', 'error');
+        return;
+      }
+      selectedFileData = file;
+      fileName.textContent = file.name;
+      fileSize.textContent = file.size > 1024 ? (file.size / 1024).toFixed(1) + ' KB' : file.size + ' B';
+      selectedFile.style.display = 'flex';
+      uploadBtn.disabled = false;
+    }
+
+    async function uploadFile() {
+      if (!selectedFileData) return;
+      uploadBtn.disabled = true;
+      uploadProgress.classList.add('active');
+      progressFill.style.width = '0%';
+      progressText.textContent = 'Uploading...';
+
+      const formData = new FormData();
+      formData.append('file', selectedFileData);
+
+      try {
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Upload failed');
+        progressFill.style.width = '100%';
+        progressText.textContent = `Indexed ${data.chunks} chunks from ${data.filename}`;
+        showToast(`Indexed ${data.chunks} chunks from ${data.filename}`, 'success');
+        loadDocuments();
+        document.getElementById('notificationBar').classList.remove('hidden');
+        document.getElementById('notifText').textContent = `New document "${data.filename}" indexed (${data.chunks} chunks).`;
+        setTimeout(closeUploadModal, 1500);
+      } catch (err) {
+        progressFill.style.width = '0%';
+        progressText.textContent = err.message;
+        showToast(err.message, 'error');
+        uploadBtn.disabled = false;
+      }
+    }
+
+    /* ---- Close modal on overlay click ---- */
+    uploadModal.addEventListener('click', (e) => {
+      if (e.target === uploadModal) closeUploadModal();
+    });
   </script>
 </body>
 </html>

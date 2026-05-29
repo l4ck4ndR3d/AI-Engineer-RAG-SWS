@@ -1,3 +1,4 @@
+import json
 import httpx
 
 from config import CHROMA_DB_DIR, COLLECTION_NAME, RETRIEVAL_K, OLLAMA_BASE_URL, EMBED_MODEL, LLM_MODEL
@@ -10,7 +11,9 @@ SYSTEM_PROMPT = (
     "using ONLY the provided context from the company documents. "
     "If the answer is not contained in the context, say: "
     "'I don't have that information in the company documents.' "
-    "Be concise and accurate. Cite the source document name when possible."
+    "Give a thorough, well-structured answer. Use bullet points where appropriate. "
+    "Always cite the source document name at the end of your answer. "
+    "Format your response in clear paragraphs."
 )
 
 
@@ -39,21 +42,6 @@ class RAGEngine:
                 sources.append(src)
         return "\n\n".join(context_parts), sources
 
-    def query_ollama_llm(self, prompt: str) -> str:
-        payload = {
-            "model": LLM_MODEL,
-            "prompt": prompt,
-            "stream": False,
-            "options": {"temperature": 0},
-        }
-        response = httpx.post(
-            f"{OLLAMA_BASE_URL}/api/generate",
-            json=payload,
-            timeout=120,
-        )
-        response.raise_for_status()
-        return response.json().get("response", "").strip()
-
     def query(self, question: str):
         results = self.retrieve(question)
         context, sources = self.format_context(results)
@@ -67,5 +55,56 @@ Question: {question}
 
 Answer:"""
 
-        answer = self.query_ollama_llm(full_prompt)
+        payload = {
+            "model": LLM_MODEL,
+            "prompt": full_prompt,
+            "stream": False,
+            "options": {"temperature": 0.1, "num_predict": 1024},
+        }
+        response = httpx.post(
+            f"{OLLAMA_BASE_URL}/api/generate",
+            json=payload,
+            timeout=120,
+        )
+        response.raise_for_status()
+        answer = response.json().get("response", "").strip()
         return {"answer": answer, "sources": sources}
+
+    def query_stream(self, question: str):
+        results = self.retrieve(question)
+        context, sources = self.format_context(results)
+
+        full_prompt = f"""{SYSTEM_PROMPT}
+
+Context:
+{context}
+
+Question: {question}
+
+Answer:"""
+
+        payload = {
+            "model": LLM_MODEL,
+            "prompt": full_prompt,
+            "stream": True,
+            "options": {"temperature": 0.1, "num_predict": 1024},
+        }
+        with httpx.Client() as client:
+            with client.stream(
+                "POST", f"{OLLAMA_BASE_URL}/api/generate",
+                json=payload,
+                timeout=120,
+            ) as resp:
+                for line in resp.iter_lines():
+                    if not line:
+                        continue
+                    try:
+                        data = json.loads(line)
+                        token = data.get("response", "")
+                        if token:
+                            yield f"data: {json.dumps({'token': token})}\n\n"
+                        if data.get("done", False):
+                            yield f"data: {json.dumps({'sources': sources})}\n\n"
+                            break
+                    except json.JSONDecodeError:
+                        continue

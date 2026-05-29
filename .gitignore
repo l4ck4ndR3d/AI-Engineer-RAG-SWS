@@ -1,5 +1,7 @@
 chroma_db/
-__pycache__/
-*.pyc
 .DS_Store
 *.egg-info/
+*.png
+*.pyc
+__pycache__/
+uploads/
