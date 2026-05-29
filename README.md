@@ -135,7 +135,7 @@ The optional `documents` field restricts retrieval to the listed documents. If o
 | **Backend** | Python 3.12 + FastAPI | REST API server |
 | **Vector Database** | ChromaDB (persistent, local) | Store & retrieve document embeddings |
 | **Embeddings** | Ollama `nomic-embed-text` (274 MB) | Convert text chunks to vector embeddings |
-| **LLM** | Ollama `qwen2.5-coder:3b` (1.9 GB) | Generate grounded answers from retrieved context |
+| **LLM** | Ollama `llama3.2:3b` (2.0 GB) | Generate grounded answers from retrieved context |
 | **PDF Parsing** | PyMuPDF (via LangChain loader) | Extract text from PDF documents |
 | **Text Splitting** | LangChain `RecursiveCharacterTextSplitter` | Split documents into 500-char chunks (50 overlap) |
 | **Embedding API** | Custom `OllamaEmbeddingFunction` with `ThreadPoolExecutor(8)` | Parallelized embedding for speed |
@@ -147,7 +147,7 @@ The optional `documents` field restricts retrieval to the listed documents. If o
 
 - **ChromaDB** — Local, zero-config, persistent. No external dependencies.
 - **nomic-embed-text** — Lightweight, runs entirely on CPU via Ollama.
-- **qwen2.5-coder:3b** — Much faster than llama3.1:8b (~3x speedup), sufficient quality for RAG.
+- **llama3.2:3b** — Much faster than llama3.1:8b, sufficient quality for RAG.
 - **No LangChain LLM wrappers** — Raw httpx calls to Ollama API to avoid version compatibility issues.
 - **Parallel embeddings** — `ThreadPoolExecutor(8)` batches simultaneous embedding requests, reducing ingestion time.
 - **Vanilla JS frontend** — Zero build step, no framework overhead, single file to serve.
@@ -182,7 +182,7 @@ The optional `documents` field restricts retrieval to the listed documents. If o
 
 ## Assumptions & Notes
 
-1. **Ollama must be running** on `localhost:11434` with the required models pulled (`nomic-embed-text`, `qwen2.5-coder:3b`).
+1. **Ollama must be running** on `localhost:11434` with the required models pulled (`nomic-embed-text`, `llama3.2:8b`).
 2. **Python environment** uses the pyenv at `~/Desktop/pyenv/` (run `source ~/Desktop/pyenv/bin/activate` to activate).
 3. **Uploaded documents** are stored in `uploads/` and added to the same ChromaDB collection. The 10 base company documents in `Documents/` are **read-only** and cannot be deleted via the API.
 4. **Removing a document** deletes both the file and its embeddings from ChromaDB. Re-upload to re-index.
